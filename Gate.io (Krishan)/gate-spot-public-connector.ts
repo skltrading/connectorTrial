@@ -1,6 +1,7 @@
 import {
     ConnectorConfiguration,
     ConnectorGroup,
+    Credential,
     PublicExchangeConnector,
     Serializable,
     SklEvent,
@@ -13,6 +14,10 @@ import {
 } from './gate-spot';
 import { WebSocket } from 'ws';
 import { Logger } from "../../util/logging";
+import CryptoJS from "crypto-js";
+import * as jwt from 'jsonwebtoken';
+import * as crypto from 'crypto';
+import { getSklSymbol } from "../../util/config";
 
 const logger = Logger.getInstance('gate-spot-public-connector');
 
@@ -30,15 +35,18 @@ const getEventType = (message: any): SklEvent | null => {
 
 export class GateSpotPublicConnector implements PublicExchangeConnector {
     private publicWebsocketFeed!: WebSocket;
-    private exchangeSymbol: string;
+    private gateSymbol: string;
+    private sklSymbol: string
     private publicWebsocketAddress: string = 'wss://api.gateio.ws/ws/v4/';
 
     constructor(
         private group: ConnectorGroup,
         private config: ConnectorConfiguration,
+        private credential: Credential,
     ) {
         const self = this;
-        self.exchangeSymbol = getGateSymbol(self.group, self.config);
+        self.gateSymbol = getGateSymbol(self.group, self.config);
+        self.sklSymbol = getSklSymbol(self.group, self.config)
     }
 
 
@@ -80,18 +88,78 @@ export class GateSpotPublicConnector implements PublicExchangeConnector {
         return await Promise.all([publicFeed]);
     }
 
+    private sign(str, secret) {
+        const hash = CryptoJS.HmacSHA256(str, secret);
+        return hash.toString();
+    }
+
+
+    private timestampAndSign(message: any, channel: string, products: string[] = []) {
+        const self = this
+        const timestamp = Math.floor(Date.now() / 1000).toString();
+        const strToSign = `${timestamp}${channel}${products.join(',')}`;
+        const sig = self.sign(strToSign, self.credential.secret);
+        return { ...message, signature: sig, timestamp: timestamp };
+    }
+
+    private generateJwt(uri: string): string {
+        const self = this;
+        const payload = {
+            iss: 'cdp',
+            nbf: Math.floor(Date.now() / 1000),
+            exp: Math.floor(Date.now() / 1000) + 120,  // JWT valid for 2 minutes
+            sub: self.credential.key,
+            uri,
+        };
+
+        const header = {
+            alg: 'ES256',
+            kid: self.credential.key,
+            nonce: crypto.randomBytes(16).toString('hex'),
+        };
+
+        return jwt.sign(payload, self.credential.secret, { algorithm: 'ES256', header });
+    }
+
+    // Method to sign WebSocket messages using JWT
+    private signWithJWT(message: any, channel: string, products: string[] = []): any {
+        const self = this;
+        const payload = {
+            iss: "cdp",
+            nbf: Math.floor(Date.now() / 1000),
+            exp: Math.floor(Date.now() / 1000) + 120,  // JWT valid for 2 minutes
+            sub: self.credential.key,
+        };
+
+        const header = {
+            alg: 'ES256',
+            kid: self.credential.key,
+            nonce: crypto.randomBytes(16).toString('hex'),
+        };
+
+        // Sign the JWT
+        const jwtToken = jwt.sign(payload, self.credential.secret, { algorithm: 'ES256', header });
+
+        // Attach the JWT to the message
+        return { ...message, jwt: jwtToken };
+    }
+
 
     private subscribeToProducts(channel: string): void {
         const self = this;
 
+        const products = [self.gateSymbol]
+
         const subscriptionMessage = {
             method: 'subscribe',
-            params: [`${channel}.${self.exchangeSymbol}`],
+            params: [`${channel}.${self.gateSymbol}`],
             id: Math.random().toString(36).substring(7),  // Unique ID for the request
         };
 
-        self.publicWebsocketFeed.send(JSON.stringify(subscriptionMessage));
-        logger.info(`Subscribed to channel: ${channel}.${self.exchangeSymbol}`);
+        const subscribeMsg = self.signWithJWT(subscriptionMessage, channel, products);
+
+        self.publicWebsocketFeed.send(JSON.stringify(subscribeMsg));
+        logger.info(`Subscribed to channel: ${channel}.${self.gateSymbol}`);
     }
 
 
@@ -126,7 +194,7 @@ export class GateSpotPublicConnector implements PublicExchangeConnector {
     private createTopOfBook(orderBookUpdate: any): TopOfBook {
         const self = this;
         return {
-            symbol: self.exchangeSymbol,
+            symbol: self.sklSymbol,
             connectorType: 'Gate',
             event: 'TopOfBook',
             timestamp: orderBookUpdate.t,
@@ -141,7 +209,7 @@ export class GateSpotPublicConnector implements PublicExchangeConnector {
     private createTrade(trades: any[]): Trade[] {
         const self = this;
         return trades.map(trade => ({
-            symbol: self.exchangeSymbol,
+            symbol: self.sklSymbol,
             connectorType: 'Gate',
             event: 'Trade',
             price: parseFloat(trade.price),
@@ -155,7 +223,7 @@ export class GateSpotPublicConnector implements PublicExchangeConnector {
     private createTicker(ticker: any): Ticker {
         const self = this;
         return {
-            symbol: self.exchangeSymbol,
+            symbol: self.sklSymbol,
             connectorType: 'Gate',
             event: 'Ticker',
             lastPrice: parseFloat(ticker.last),
@@ -167,20 +235,21 @@ export class GateSpotPublicConnector implements PublicExchangeConnector {
     }
 
 
-    public async stop(): Promise<void> {
+    public async unsubscribeToProducts(channel: string): Promise<void> {
         const self = this;
+        const products = [self.gateSymbol]
         if (self.publicWebsocketFeed) {
             const unsubscribeMessage = {
                 method: 'unsubscribe',
                 params: [
-                    `spot.trades.${self.exchangeSymbol}`,
-                    `spot.order_book_update.${self.exchangeSymbol}`,
-                    `spot.tickers.${self.exchangeSymbol}`,
+                    `spot.trades.${self.gateSymbol}`,
+                    `spot.order_book_update.${self.gateSymbol}`,
+                    `spot.tickers.${self.gateSymbol}`,
                 ],
                 id: Math.random().toString(36).substring(7),
             };
-
-            self.publicWebsocketFeed.send(JSON.stringify(unsubscribeMessage));
+            const unSubscribeMsg = self.timestampAndSign(unsubscribeMessage, channel, products);
+            self.publicWebsocketFeed.send(JSON.stringify(unSubscribeMsg));
             self.publicWebsocketFeed.close();
             logger.info('Public WebSocket connection closed and unsubscribed from channels');
         }
