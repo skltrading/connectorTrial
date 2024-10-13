@@ -16,9 +16,9 @@ import {
 } from './gate-spot';
 import { WebSocket } from 'ws';
 import { Logger } from "../../util/logging";
-import CryptoJS from "crypto-js";
-import * as jwt from 'jsonwebtoken';
-import * as crypto from 'crypto';
+// import CryptoJS from "crypto-js";
+// import * as jwt from 'jsonwebtoken';
+// import * as crypto from 'crypto';
 import { getSklSymbol } from "../../util/config";
 
 const logger = Logger.getInstance('gate-spot-public-connector');
@@ -28,7 +28,7 @@ export interface GateTrade {
     id: number;                    // Trade ID
     create_time: number;           // Trade Unix timestamp in seconds
     create_time_ms: string;        // Trading Unix timestamp in milliseconds
-    side: 'buy' | 'sell';          // Taker side (buy/sell)
+    side: GateTradeSide;          // Taker side (buy/sell)
     currency_pair: string;         // Currency pair (e.g., BTC_USDT)
     amount: string;                  // Trade size (amount)
     price: string;                 // Trade price
@@ -45,6 +45,20 @@ export interface GateTicker {
     quote_volume: string;   // Volume of the quote currency
     high_24h: string;       // 24-hour high price
     low_24h: string;        // 24-hour low price
+}
+
+interface GateOrderBookLevel {
+    price_level: string;  // Price level of the order
+    new_quantity: string; // Quantity at that price level
+}
+
+interface GateOrderBookUpdate {
+    t: number;  // Order book update time in milliseconds
+    s: string;  // Currency pair
+    U: number;  // First update order book id
+    u: number;  // Last update order book id
+    b: [string, string][];  // Array of bids [Price, Amount]
+    a: [string, string][];  // Array of asks [Price, Amount]
 }
 
 // Utility function to map event types
@@ -64,6 +78,8 @@ export class GateSpotPublicConnector implements PublicExchangeConnector {
     private gateSymbol: string;
     private sklSymbol: string
     private publicWebsocketAddress: string = 'wss://api.gateio.ws/ws/v4/';
+    public bids: GateOrderBookLevel[] = [];
+    public asks: GateOrderBookLevel[] = [];
 
     constructor(
         private group: ConnectorGroup,
@@ -75,42 +91,56 @@ export class GateSpotPublicConnector implements PublicExchangeConnector {
         self.sklSymbol = getSklSymbol(self.group, self.config)
     }
 
-    public async connect(onMessage: (messages: Serializable[]) => void): Promise<any> {
+    public async connect(onMessage: (messages: Serializable[]) => void): Promise<void> {
         const self = this;
-
-
         const publicFeed = new Promise((resolve) => {
             const url = self.publicWebsocketAddress;
             self.publicWebsocketFeed = new WebSocket(url);
 
             self.publicWebsocketFeed.on('open', () => {
                 logger.info('Public WebSocket connection opened');
-
-
+                self.subscribeToProducts('spot.ping');
                 self.subscribeToProducts('spot.trades');
                 self.subscribeToProducts('spot.order_book_update');
                 self.subscribeToProducts('spot.tickers');
-
-                resolve(true);  // Resolve the promise once connected and subscriptions are done
+                resolve(true);
             });
 
-            self.publicWebsocketFeed.onmessage = (message: any) => {
-                self.handleMessage(message, onMessage);
-            };
+            self.publicWebsocketFeed.on('message', (message: any) => {
+                const gateEvent = JSON.parse(message.data);
+
+                if (gateEvent.channel === "spot.ping") {
+                    logger.log(`Ping received: timestamp = ${gateEvent.time}`);
+                } else {
+                    const actionType: SklEvent | null = getEventType(gateEvent);
+                    if (actionType) {
+                        const serializableMessages: Serializable[] = self.createSklEvent(actionType, gateEvent, self.group)
+                            .filter((serializableMessage: Serializable | null) => serializableMessage !== null) as Serializable[];
+
+                        if (serializableMessages.length > 0) {
+                            onMessage(serializableMessages);
+                        } else {
+                            logger.log(`No messages generated for event: ${JSON.stringify(gateEvent)}`);
+                        }
+                    } else {
+                        logger.log(`No handler for message: ${JSON.stringify(gateEvent)}`);
+                    }
+                }
+            });
 
             self.publicWebsocketFeed.on('error', (error: Error) => {
                 logger.error('WebSocket error:', error);
             });
 
             self.publicWebsocketFeed.on('close', () => {
-                logger.warn('Public WebSocket connection closed, attempting to reconnect');
+                logger.warn('WebSocket connection closed, attempting to reconnect');
                 setTimeout(() => {
                     self.connect(onMessage);
-                }, 1000); // Reconnect after 1 second
+                }, 1000);
             });
         });
 
-        return await Promise.all([publicFeed]);
+        await Promise.all([publicFeed]);
     }
 
     private subscribeToProducts(channel: string): void {
@@ -130,32 +160,55 @@ export class GateSpotPublicConnector implements PublicExchangeConnector {
         logger.info(`Subscribed to channel: ${channel}.${self.gateSymbol}`);
     }
 
-    private handleMessage(data: string, onMessage: (messages: Serializable[]) => void): void {
+    private updateBook(orderBookUpdate: GateOrderBookUpdate): void {
         const self = this;
-        const message = JSON.parse(data);
-        const eventType = getEventType(message);
 
-        if (eventType) {
-            switch (eventType) {
-                case 'TopOfBook':
-                    const orderBookEvent: TopOfBook = self.createTopOfBook(message.result);
-                    onMessage([orderBookEvent]);
-                    break;
-                case 'Trade':
-                    const tradeEvents = self.createTrade(message.result);
-                    onMessage(tradeEvents);
-                    break;
-                case 'Ticker':
-                    const tickerEvent: Ticker = self.createTicker(message.result);
-                    onMessage([tickerEvent]);
-                    break;
-                default:
-                    logger.warn(`Unhandled event type: ${eventType}`);
+        // Process bids
+        orderBookUpdate.b.forEach(([price, amount]: [string, string]) => {
+            const eventIndex = self.bids.findIndex(b => b.price_level === price);
+            if (parseFloat(amount) === 0 && eventIndex !== -1) {
+                self.bids.splice(eventIndex, 1);
+            } else if (parseFloat(amount) > 0 && eventIndex === -1) {
+                self.bids.push({ price_level: price, new_quantity: amount });
+                self.bids.sort((a, b) => parseFloat(b.price_level) - parseFloat(a.price_level));
             }
-        } else {
-            logger.warn('Unknown event type:', message.event);
+        });
+
+        // Process asks
+        orderBookUpdate.a.forEach(([price, amount]: [string, string]) => {
+            const eventIndex = self.asks.findIndex(a => a.price_level === price);
+            if (parseFloat(amount) === 0 && eventIndex !== -1) {
+                self.asks.splice(eventIndex, 1);
+            } else if (parseFloat(amount) > 0 && eventIndex === -1) {
+                self.asks.push({ price_level: price, new_quantity: amount });
+                self.asks.sort((a, b) => parseFloat(a.price_level) - parseFloat(b.price_level));
+            }
+        });
+    }
+
+    private createSklEvent(event: SklEvent, message: any, group: ConnectorGroup): Serializable[] {
+        const self = this;
+
+        if (event === 'TopOfBook') {
+            const orderBookUpdates = message.result; // Handle Gate.io order book updates
+            self.updateBook(orderBookUpdates);
+            return [self.createTopOfBook(message.result.t)];
+        }
+        else if (event === 'Trade') {
+            const trades = message.result;
+            return trades.map((trade: any) => self.createTrade(trade));
+        }
+        else if (event === 'Ticker') {
+            const tickers = message.result;
+            return tickers.map((ticker: any) => self.createTicker(ticker));
+        }
+        else {
+            logger.log(`Unhandled event: ${event}`);
+            return [];
         }
     }
+
+
 
     // Create a TopOfBook event from order book update data
     private createTopOfBook(orderBookUpdate: any): TopOfBook {
