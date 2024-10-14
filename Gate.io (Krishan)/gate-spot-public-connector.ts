@@ -23,6 +23,13 @@ import { getSklSymbol } from "../../util/config";
 
 const logger = Logger.getInstance('gate-spot-public-connector');
 
+interface GateEvent {
+    channel: string,
+    time: string,
+    sequence_num: number,
+
+}
+
 
 export interface GateTrade {
     id: number;                    // Trade ID
@@ -75,9 +82,9 @@ const getEventType = (message: any): SklEvent | null => {
 
 export class GateSpotPublicConnector implements PublicExchangeConnector {
     private publicWebsocketFeed!: WebSocket;
-    private gateSymbol: string;
-    private sklSymbol: string
-    private publicWebsocketAddress: string = 'wss://api.gateio.ws/ws/v4/';
+    private gateSymbol: string = '';
+    private sklSymbol: string = '';
+    private readonly publicWebsocketAddress: string = 'wss://api.gateio.ws/ws/v4/';
     public bids: GateOrderBookLevel[] = [];
     public asks: GateOrderBookLevel[] = [];
 
@@ -87,8 +94,8 @@ export class GateSpotPublicConnector implements PublicExchangeConnector {
         private credential: Credential,
     ) {
         const self = this;
-        self.gateSymbol = getGateSymbol(self.group, self.config);
-        self.sklSymbol = getSklSymbol(self.group, self.config)
+        self.gateSymbol = getGateSymbol(self.group, self.config) || '';
+        self.sklSymbol = getSklSymbol(self.group, self.config) || '';
     }
 
     public async connect(onMessage: (messages: Serializable[]) => void): Promise<void> {
@@ -106,25 +113,40 @@ export class GateSpotPublicConnector implements PublicExchangeConnector {
                 resolve(true);
             });
 
-            self.publicWebsocketFeed.on('message', (message: any) => {
-                const gateEvent = JSON.parse(message.data);
+            self.publicWebsocketFeed.on('update', (data) => {
+                console.info('data received: ', JSON.stringify(data));
+            });
 
-                if (gateEvent.channel === "spot.ping") {
-                    logger.log(`Ping received: timestamp = ${gateEvent.time}`);
-                } else {
-                    const actionType: SklEvent | null = getEventType(gateEvent);
-                    if (actionType) {
-                        const serializableMessages: Serializable[] = self.createSklEvent(actionType, gateEvent, self.group)
-                            .filter((serializableMessage: Serializable | null) => serializableMessage !== null) as Serializable[];
+            self.publicWebsocketFeed.on('update', (message: any) => {
 
-                        if (serializableMessages.length > 0) {
-                            onMessage(serializableMessages);
+                if (message?.data) {
+                    try {
+                        //console.log(message.data);
+
+                        const gateEvent: GateEvent = JSON.parse(message.data) as GateEvent;
+
+                        if (gateEvent.channel === "spot.ping") {
+                            logger.log(`Ping received: timestamp = ${gateEvent.time}`);
                         } else {
-                            logger.log(`No messages generated for event: ${JSON.stringify(gateEvent)}`);
+                            const actionType: SklEvent | null = getEventType(gateEvent);
+                            if (actionType) {
+                                const serializableMessages: Serializable[] = self.createSklEvent(actionType, gateEvent, self.group)
+                                    .filter((serializableMessage: Serializable | null) => serializableMessage !== null) as Serializable[];
+
+                                if (serializableMessages.length > 0) {
+                                    onMessage(serializableMessages);
+                                } else {
+                                    logger.log(`No messages generated for event: ${JSON.stringify(gateEvent)}`);
+                                }
+                            } else {
+                                logger.log(`No handler for message: ${JSON.stringify(gateEvent)}`);
+                            }
                         }
-                    } else {
-                        logger.log(`No handler for message: ${JSON.stringify(gateEvent)}`);
+                    } catch (error: any) {
+                        logger.error(`Error parsing WebSocket message: ${error.message}`, message.data);
                     }
+                } else {
+                    logger.error('Received empty or undefined message from WebSocket');
                 }
             });
 
@@ -192,7 +214,8 @@ export class GateSpotPublicConnector implements PublicExchangeConnector {
         if (event === 'TopOfBook') {
             const orderBookUpdates = message.result; // Handle Gate.io order book updates
             self.updateBook(orderBookUpdates);
-            return [self.createTopOfBook(message.result.t)];
+            return [self.createTopOfBook(message.result.t)].filter((topOfBook): topOfBook is TopOfBook => topOfBook !== null);
+
         }
         else if (event === 'Trade') {
             const trades = message.result;
@@ -211,7 +234,7 @@ export class GateSpotPublicConnector implements PublicExchangeConnector {
 
 
     // Create a TopOfBook event from order book update data
-    private createTopOfBook(orderBookUpdate: any): TopOfBook {
+    private createTopOfBook(orderBookUpdate: any): TopOfBook | null {
         const self = this;
         if (orderBookUpdate.b.length === 0 || orderBookUpdate.a.length === 0) {
             return null;
