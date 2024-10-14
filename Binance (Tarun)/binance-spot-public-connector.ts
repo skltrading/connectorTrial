@@ -43,7 +43,7 @@ export class BinanceSpotPublicConnector implements PublicExchangeConnector {
 
     public publicWSFeed: any;
 
-    // private pingInterval: any;
+    //private pingInterval: any;
 
     private exchangeSymbol: string;
 

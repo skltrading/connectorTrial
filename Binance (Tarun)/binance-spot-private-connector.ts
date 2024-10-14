@@ -12,7 +12,7 @@ import {
     OpenOrdersRequest,
     BalanceRequest,
     BalanceResponse,
-    //BatchOrdersRequest
+    BatchOrdersRequest
 } from "../../types";
 
 import { Logger } from "../../util/logging";
@@ -52,7 +52,7 @@ const BinanceOrderTypeMap: { [key: string]: BinanceOrderType } = {
 const logger = Logger.getInstance('binance-spot-private-connector');
 
 export class BinanceSpotPrivateConnector implements PrivateExchangeConnector {
-    public connectorId: string;
+    public connectorId!: string;
 
     public privateWebsocketAddress = 'wss://testnet.binance.vision/ws-api/v3';
 
@@ -69,6 +69,15 @@ export class BinanceSpotPrivateConnector implements PrivateExchangeConnector {
     private exchangeSymbol: string;
 
     private sklSymbol: string;
+
+    private orderQueue: any[] = [];
+
+    private isProcessing: boolean = false;
+
+    private maxOrdersPerSecond = 10;
+
+    private requestInterval = 1000 / this.maxOrdersPerSecond; // Interval in ms
+
 
     constructor(
         private group: ConnectorGroup,
@@ -287,6 +296,13 @@ export class BinanceSpotPrivateConnector implements PrivateExchangeConnector {
                 console.log('Order full response:', fullResponse);
                 return fullResponse;
 
+            } else if ('code' in data && 'msg' in data) {
+                logger.log(`Subscription response: ${data.code} - ${data.msg}`)
+                const failResponse = {
+                    code: data.code,
+                    msg: data.msg
+                }
+                return failResponse;
             } else {
                 throw new Error('Unknown response type');
             }
@@ -294,6 +310,68 @@ export class BinanceSpotPrivateConnector implements PrivateExchangeConnector {
         } catch (error: any) {
             logger.error('API Error:', error);
         }
+    }
+
+    public async placeOrderWithRateLimit(data: placeOrderData): Promise<any> {
+        const self = this;
+
+        const order = {
+            symbol: data.symbol,
+            quantity: data.quantity.toFixed(8),
+            price: data.price.toFixed(8),
+            side: BinanceInvertedSideMap[data.side],
+            type: BinanceOrderTypeMap[data.type],
+        };
+
+        this.orderQueue.push({ order, data });
+
+        if (!this.isProcessing) {
+            this.isProcessing = true;
+            await this.processOrderQueue();
+        }
+
+        return;
+    }
+
+    // this function is for implementing rate limiting to 10 orders per second
+    private async processOrderQueue() {
+        while (this.orderQueue.length > 0) {
+            const { order, data } = this.orderQueue.shift();
+
+            const response = await this.postRequest('/api/v3/order', order);
+
+            let resultResponse: any = null;
+
+            if (data.newOrderRespType === 'ACK') {
+
+                resultResponse = response as unknown as OrderAckResponse;
+                console.log('Order acknowledged:', resultResponse);
+
+            } else if (data.newOrderRespType === 'RESULT') {
+
+                resultResponse = response as unknown as OrderResultResponse;
+                console.log('Order result:', resultResponse);
+
+            } else if (data.newOrderRespType === 'FULL') {
+
+                resultResponse = response as unknown as OrderFullResponse;
+                console.log('Order full response:', resultResponse);
+
+            } else {
+                throw new Error('Unknown response type');
+            }
+
+            await this.delay(this.requestInterval);
+
+            return resultResponse;
+        }
+
+        // All orders processed, mark as not processing
+        this.isProcessing = false;
+    }
+
+    private delay(ms: number): Promise<void> {
+        return new Promise(resolve => setTimeout(resolve, ms));
     }
 
     public async deleteOneOrder(request: CancelSingleOrderData): Promise<any> {

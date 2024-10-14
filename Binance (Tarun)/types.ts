@@ -104,19 +104,19 @@ export type AccountInfo = {
 };
 
 export interface BinanceOrderProgress {
-    e: "executionReport",
-    s: string; // this.sklSymbol
-    S: string       // Side           
-    i: number;                 // order.d.i (Order ID)
-    c: string;              // order.d.c (Client Order ID)
-    p: number;                   // parseFloat(order.d.p) (Order price)
-    q: number;                    // order.d.v (Order quantity)            
-    z: number;            // parseFloat(order.d.ap) (Average filled price)
-    Z: number;             // parseFloat(order.d.a) (Filled quantity)
-    E: number;              // parseInt(order.t) (Eent time)
+    e: string,
+    s: string;
+    S: string  
+    i: number;       
+    c: string; 
+    p: number;             
+    q: number;            
+    z: number;          
+    Z: number;         
+    E: number;            
     x: string;
     X: string;
-    o: string; // order type              
+    o: string;              
 }
 
 export interface OrderAckResponse {
