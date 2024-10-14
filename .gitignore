@@ -1,6 +1,7 @@
 node_modules
-/src
+src
 nodemon.json
 package-lock.json
 package.json
 tsconfig.json
+.env
