@@ -36,8 +36,6 @@ export interface BinanceTradeEvent {
     M: boolean;      // Ignore
 }
 
-export interface MexcTrade { p: string, S: number, v: string, t: number };
-
 export class BinanceSpotPublicConnector implements PublicExchangeConnector {
     public publicWebsocketAddress = 'wss://stream.binance.com:9443/ws';
 
@@ -58,7 +56,7 @@ export class BinanceSpotPublicConnector implements PublicExchangeConnector {
     public async connect(onMessage: (m: Serializable[]) => void, socket = undefined): Promise<any> {
         return new Promise(async (resolve, reject) => {
             try {
-                logger.log(`Attempting to connect to MEXC`);
+                logger.log(`Attempting to connect to Binance`);
     
                 const url = this.publicWebsocketAddress;
                 this.publicWSFeed = socket || new WebSocket(url);
@@ -216,7 +214,7 @@ export class BinanceSpotPublicConnector implements PublicExchangeConnector {
     private createTopOfBook(marketDepth: BinanceMarketDepth, group: ConnectorGroup): TopOfBook {
         return {
             symbol: this.sklSymbol,
-            connectorType: 'Mexc',
+            connectorType: 'Binance',
             event: 'TopOfBook',
             timestamp:  0, // binance do not send timestamps with partial book depth data stream 
             askPrice: parseFloat(marketDepth.asks[0][0]),
