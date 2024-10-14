@@ -19,8 +19,8 @@ import { Logger } from "../../util/logging";
 import CryptoJS from 'crypto-js';
 import axios, { AxiosStatic } from 'axios';
 import { WebSocket } from 'ws'
-import { getSklSymbol } from "../../util/config";
-import { BinanceInvertedSideMap, BinanceSideMap, BinanceStringSideMap, getBinanceSymbol } from "./binance-spot";
+//import { getSklSymbol } from "../../util/config";
+import { BinanceInvertedSideMap, BinanceSideMap, BinanceStringSideMap, getBinanceSymbol, getSklSymbol } from "./binance-spot";
 import { AllActiveOrder, AccountInfo, placeOrderData, OrderAckResponse, OrderResultResponse, OrderFullResponse, CancelSingleOrderData, BinanceOrderProgress } from "./types";
 
 export type BinanceOrderType = 'LIMIT' | 'MARKET' | 'LIMIT_MAKER' | 'STOP_LOSS' | 'STOP_LOSS_LIMIT' | 'TAKE_PROFIT' | 'TAKE_PROFIT_LIMIT';
@@ -312,7 +312,7 @@ export class BinanceSpotPrivateConnector implements PrivateExchangeConnector {
         }
     }
 
-    public async placeOrderWithRateLimit(data: placeOrderData): Promise<any> {
+    public async placeOrder(data: placeOrderData): Promise<any> {
         const self = this;
 
         const order = {
@@ -417,7 +417,7 @@ export class BinanceSpotPrivateConnector implements PrivateExchangeConnector {
 
         const state: OrderState = BinanceWSOrderUpdateStateMap[order.X]
 
-        const side: Side = BinanceSideMap[order.S]
+        const side: Side = BinanceStringSideMap[order.S]
 
         return {
             symbol: this.sklSymbol,

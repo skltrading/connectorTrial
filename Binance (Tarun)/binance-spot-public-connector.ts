@@ -1,7 +1,8 @@
 import { ConnectorConfiguration, ConnectorGroup, PublicExchangeConnector, Serializable, SklEvent, Ticker, TopOfBook, Trade } from "../../types";
-import { getSklSymbol } from "../../util/config";
+//import { getSklSymbol } from "../../util/config";
+
 import { Logger } from "../../util/logging";
-import { getBinanceSymbol, BinanceSideMap } from "./binance-spot";
+import { getBinanceSymbol, BinanceSideMap, getSklSymbol } from "./binance-spot";
 import { WebSocket } from 'ws'
 
 
@@ -150,7 +151,7 @@ export class BinanceSpotPublicConnector implements PublicExchangeConnector {
 
         if (event !== undefined && event.c !== undefined) {
 
-            if (message.e === "depthUpdate") {
+            if ('bids' in message && 'ask' in message) {
 
                 return 'TopOfBook'
 
@@ -230,7 +231,7 @@ export class BinanceSpotPublicConnector implements PublicExchangeConnector {
             symbol: this.sklSymbol,
             connectorType: 'Binance',
             event: 'Ticker',
-            lastPrice: parseFloat(trade.o),
+            lastPrice: parseFloat(trade.c),
             timestamp: trade.E * 1000,
         };
     }
