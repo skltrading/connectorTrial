@@ -3,17 +3,22 @@
   "version": "1.0.0",
   "description": "",
   "scripts": {
-    "build": "tsc ./start.ts",
-    "start": "node ./start.js",
+    "run-public": "tsc ./private-driver.ts && node ./public-driver.js",
+    "run-private": "tsc ./private-driver.ts && node ./private-driver.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "5war00p",
   "license": "ISC",
   "dependencies": {
+    "crypto-js": "^4.2.0",
+    "dotenv": "^16.4.5",
     "ws": "^8.18.0"
   },
   "devDependencies": {
+    "@types/crypto-js": "^4.2.2",
+    "@types/node": "^22.7.5",
+    "@types/ws": "^8.5.12",
     "typescript": "^5.6.3"
   }
 }
