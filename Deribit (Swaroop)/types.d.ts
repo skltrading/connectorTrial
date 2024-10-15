@@ -1,7 +1,9 @@
-type OrderBookDepth = 1 | 10 | 20
-type PublicInterval = "agg2" | "100ms"
-type PrivateInterval = PublicInterval | "raw"
-type ETHGroup = 
+export type Serializable = string | number | object
+
+export type OrderBookDepth = 1 | 10 | 20
+export type PublicInterval = "agg2" | "100ms"
+export type PrivateInterval = PublicInterval | "raw"
+export type ETHGroup = 
     |"none"
     | "1"
     | "2"
@@ -10,24 +12,26 @@ type ETHGroup =
     | "25"
     | "100"
     | "250"
-type BTCGroup = 
+export type BTCGroup = 
     | "1"
     | "10"
     | "20"
-type ConnectorGroup = BTCGroup | ETHGroup
+export type ConnectorGroup = BTCGroup | ETHGroup
 
-interface DeribitTopOfBook {
+export type Spread = [string, number, number]
+
+export interface DeribitTopOfBook {
     prev_change_id: number | null // Doesn't exists for first notification
     type: 'snapshot' | 'change';
     timestamp: number;
     instrument_name: string;
     change_id: number;
     // Array of arrays: [status, price, amount] - status [new, change or delete.]
-    bids: [string, number, number][];
-    asks: [string, number, number][];
+    bids: Spread[];
+    asks: Spread[];
 }
 
-interface DeribitTrade {
+export interface DeribitTrade {
     trade_id: string,
     contracts: number,
     tick_direction: 1,
@@ -41,7 +45,7 @@ interface DeribitTrade {
     timestamp: number
 }
 
-interface DeribitTicker {
+export interface DeribitTicker {
     timestamp: number;
     stats: {
         volume_usd: number;
@@ -69,38 +73,40 @@ interface DeribitTicker {
     best_ask_amount: number;
 }
 
-type DeribitDirection = "buy" | "sell"
+export type DeribitDirection = "buy" | "sell"
 
-interface DeribitEventData { 
+export interface DeribitEventData { 
     params: { 
+        id?: SklEvent
+        channel?: string
         data: DeribitTicker | DeribitTopOfBook | DeribitTrade 
     } 
 }
 
-type SklEvent = "Trade" | "TopOfBook" | "Ticker"
+export type SklEvent = "Trade" | "TopOfBook" | "Ticker" | "Version" | "Unsubscribe"
 
-type SklSupportedConnectors = "MEXC" | "Coinbase" | "Deribit"
+export type SklSupportedConnectors = "MEXC" | "Coinbase" | "Deribit"
 
-interface BasicSklNotificationProps {
+export interface BasicSklNotificationProps {
     event: SklEvent,
     connectorType: SklSupportedConnectors
     symbol: string,
     timestamp: number,
 }
 
-type SklSide = "Buy" | "Sell"
+export type SklSide = "Buy" | "Sell"
 
-interface SklTrade extends BasicSklNotificationProps {
+export interface SklTrade extends BasicSklNotificationProps {
     price: number,
     size: number,
     side: SklSide,
 }
 
-interface SklTicker extends BasicSklNotificationProps {
+export interface SklTicker extends BasicSklNotificationProps {
     lastPrice: number,
 }
 
-interface SklTopOfBook extends BasicSklNotificationProps {
+export interface SklTopOfBook extends BasicSklNotificationProps {
     askPrice: number,
     askSize: number,
     bidPrice: number,
