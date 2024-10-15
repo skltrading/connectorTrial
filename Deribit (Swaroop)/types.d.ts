@@ -18,6 +18,12 @@ export type BTCGroup =
     | "20"
 export type ConnectorGroup = BTCGroup | ETHGroup
 
+export interface ConnectorConfig {
+    group?: ConnectorGroup
+    interval?: PrivateInterval
+    orderBookDepth?: OrderBookDepth
+}
+
 export type Spread = [string, number, number]
 
 export interface DeribitTopOfBook {
@@ -76,6 +82,9 @@ export interface DeribitTicker {
 export type DeribitDirection = "buy" | "sell"
 
 export interface DeribitEventData { 
+    method: string
+    id?: SklEvent
+    result?: JSON
     params: { 
         id?: SklEvent
         channel?: string
@@ -83,7 +92,68 @@ export interface DeribitEventData {
     } 
 }
 
-export type SklEvent = "Trade" | "TopOfBook" | "Ticker" | "Version" | "Unsubscribe"
+export interface DeribitOpenOrder {
+    time_in_force: string,
+    reduce_only: boolean,
+    price: number,
+    trigger_price: number
+    post_only: boolean,
+    order_type: "limit" | "market" | "stop_limit" | "stop_market",
+    order_state: "open" | "filled" | "rejected" | "cancelled" | "untriggered",
+    order_id: string,
+    max_show: number,
+    last_update_timestamp: number,
+    label: "",
+    is_rebalance: boolean,
+    is_liquidation: boolean,
+    instrument_name: string,
+    filled_amount: number,
+    direction: DeribitDirection,
+    creation_timestamp: number,
+    average_price: number,
+    api: boolean,
+    amount: number
+}
+
+export type DeribitCurrencySymbol = 
+    | "BTC"
+    | "BTC-PERPETUAL"
+    | "ETH-PERPETUAL"
+    | "ETH"
+    | "USDC"
+    | "USDT"
+    | "EURR"
+
+export type DeribitOpenOrderKind = 
+    | "future"
+    | "option"
+    | "spot"
+    | "future_combo"
+    | "option_combo"
+
+export type DeribitOpenOrderType = 
+    | "all"
+    | "limit"
+    | "trigger_all"
+    | "stop_all"
+    | "stop_limit"
+    | "stop_market"
+    | "take_all"
+    | "take_limit"
+    | "take_market"
+    | "trailing_all"
+    | "trailing_stop"
+
+export interface DeribitAccountSummaries {
+    // ... lot more fields comes in extended version
+    summaries: Array<{
+        // ... lot more fields comes
+        currency: string
+        balance: number
+    }>
+}
+
+export type SklEvent = "Trade" | "TopOfBook" | "Ticker" | "Version" | "Unsubscribe" | "OrderStatusUpdate" | "AllBalances"
 
 export type SklSupportedConnectors = "MEXC" | "Coinbase" | "Deribit"
 
@@ -111,4 +181,17 @@ export interface SklTopOfBook extends BasicSklNotificationProps {
     askSize: number,
     bidPrice: number,
     bidSize: number,
+}
+
+export interface SklCurrentActiveOrder extends BasicSklNotificationProps {
+    orderId: string,
+    sklOrderId: string,
+    state: string,
+    side: string,
+    price: number,
+    size: number,
+    notional: number,
+    filled_price: number,
+    filled_size: number,
+    timestamp: number,
 }

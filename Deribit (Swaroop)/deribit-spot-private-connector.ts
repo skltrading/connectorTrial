@@ -7,19 +7,26 @@ import { configDotenv } from "dotenv";
 configDotenv()
 
 export class DeribitSpotPrivateConnector {
-    public publicWebsocketAddress = 'wss://www.deribit.com/ws/api/v2';
+    private websocketAddress = 'wss://www.deribit.com/ws/api/v2';
 
-    public retryCount = 0;
-    public websocket: WebSocket;
+    private retryCount = 0;
+    private websocket: WebSocket;
 
-    public bids: Types.Spread[] = []
-    public asks: Types.Spread[] = []
+    private bids: Types.Spread[] = []
+    private asks: Types.Spread[] = []
+
+    private exchangeSymbol: Types.DeribitCurrencySymbol
+    private config: Types.ConnectorConfig
+    constructor(exchangeSymbol: Types.DeribitCurrencySymbol, config?: Types.ConnectorConfig) {
+        this.exchangeSymbol = exchangeSymbol
+        this.config = config
+    }
 
     public async connect(onMessage: (m: Types.Serializable[]) => void): Promise<void> {
         try {
-            console.log(`Attempting to connect to Deribit`);
+            console.log(`Attempting to connect privately to Deribit`);
 
-            const url = this.publicWebsocketAddress;
+            const url = this.websocketAddress;
             this.websocket = new WebSocket(url);
 
             this.websocket.on('open', () => {
@@ -27,7 +34,7 @@ export class DeribitSpotPrivateConnector {
                     this.auth()
                     setTimeout(() => {
                         // Hardcoding values for now but this can be obtained via props
-                        this.subscribeToChannels({exchangeSymbol: "ETH-PERPETUAL", group: "1", interval: "100ms", orderBookDepth: 1})
+                        this.subscribeToChannels({exchangeSymbol: this.exchangeSymbol, ...this.config})
                     }, 1000)
                     this.retryCount = 0;
                 } catch (err) {
@@ -84,11 +91,11 @@ export class DeribitSpotPrivateConnector {
     }
     
     public async unsubscribeToAllChannels() {
-        const message = JSON.stringify({
-            'id': 'UNSUBSCRIBE',
-            'method': '/private/unsubscribe_all',
-        });
-        this.websocket.send(message);
+            const message = JSON.stringify({
+                'id': 'UNSUBSCRIBE',
+                'method': '/private/unsubscribe_all',
+            });
+            this.websocket.send(message);
     }
 
     public async stop() {
@@ -101,12 +108,26 @@ export class DeribitSpotPrivateConnector {
         this.websocket.terminate();
     }
 
-    private subscribeToChannels({ exchangeSymbol, group, orderBookDepth, interval }: { exchangeSymbol: string, group: Types.ConnectorGroup,  orderBookDepth: Types.OrderBookDepth, interval: Types.PrivateInterval }): void {
-        const channels = [
-            `trades.${exchangeSymbol}.${interval}`,
-            `book.${exchangeSymbol}.${group}.${orderBookDepth}.${interval}`,
-            `ticker.${exchangeSymbol}.${interval}`,
-        ];
+    private subscribeToChannels({ exchangeSymbol, group, orderBookDepth, interval }: { exchangeSymbol: string, group?: Types.ConnectorGroup,  orderBookDepth?: Types.OrderBookDepth, interval?: Types.PrivateInterval }): void {
+        if (!exchangeSymbol) return
+
+        let trades = `trades.${exchangeSymbol}`
+        let tickers = `ticker.${exchangeSymbol}`
+        let book = `book.${exchangeSymbol}`
+
+        if (interval) {
+            trades += `.${interval}`
+            tickers += `.${interval}`
+            if (group) {
+                book += `.${group}`
+            }
+            if (orderBookDepth) {
+                book += `.${orderBookDepth}`
+            }
+            book += `.${interval}`
+        }
+
+        const channels = [trades, tickers, book];
     
         const subscriptionMessage = {
             method: 'private/subscribe',
@@ -117,8 +138,11 @@ export class DeribitSpotPrivateConnector {
     }
 
     private getEventType(message: Types.DeribitEventData): Types.SklEvent | null {
-        if ("params" in message  && "id" in message) {
+        if ("params" in message  && "id" in message.params) {
             return message.params.id
+        } 
+        else if ("id" in message) {
+            return message.id
         } 
         else if ("params" in message && "channel" in message.params) {
             if (message.params.channel.startsWith("trades")) return "Trade"
@@ -160,6 +184,14 @@ export class DeribitSpotPrivateConnector {
             case 'Ticker': {
                 const ticker = eventData.params.data as unknown as Types.DeribitTicker
                 return [this.createTicker(ticker)].filter((e) => e !== null);
+            }
+            case 'OrderStatusUpdate': {
+                const orders = eventData.result as unknown as Types.DeribitOpenOrder[]
+                return this.getCurrentActiveOrders(orders).filter((e) => e !== null);
+            }
+            case 'AllBalances': {
+                const accountSummaries = eventData.result as unknown as Types.DeribitAccountSummaries
+                return this.getAllBalances(accountSummaries).filter((e) => e !== null);
             }
             default:
                 return [];
@@ -276,5 +308,64 @@ export class DeribitSpotPrivateConnector {
             }
         });
         this.websocket.send(message);
+    }
+
+    public requestCurrentActiveOrders(kind?: Types.DeribitOpenOrderKind, type?: Types.DeribitOpenOrderType): void {
+        const message = JSON.stringify({
+            method : "private/get_open_orders_by_currency",
+            id: "OrderStatusUpdate",
+            params : {
+                currency: this.exchangeSymbol, 
+                kind,
+                type
+            }
+        });
+        this.websocket.send(message);
+    }
+
+    private getCurrentActiveOrders(orders: Types.DeribitOpenOrder[]): Types.SklCurrentActiveOrder[] {
+        return orders.map(order => ({
+            event: 'OrderStatusUpdate',
+            connectorType: 'Deribit',
+            symbol: order.instrument_name,
+            orderId: order.order_id,
+            sklOrderId: order.order_id,
+            state: order.order_state,
+            side: directionMap[order.direction],
+            price: order.price,
+            size: order.amount,
+            notional: order.price * order.amount,
+            filled_price: order.trigger_price,
+            filled_size: order.filled_amount,
+            timestamp: order.last_update_timestamp,
+        }));
+    }
+
+    private cancelAllOrders(kind: Types.DeribitOpenOrderKind, type: Types.DeribitOpenOrderType): void {
+        const message = JSON.stringify({
+            method : "private/cancel_all_by_currency",
+            id: "CancelAllOrders",
+            params : {
+                currency: this.exchangeSymbol, 
+                kind,
+                type
+            }
+        });
+        this.websocket.send(message);
+    }
+
+    public requestAllBalances(): void {
+        const message = JSON.stringify({
+            method : "private/get_account_summaries",
+            id: "AllBalances"
+        });
+        this.websocket.send(message);
+    }
+
+    private getAllBalances(data: Types.DeribitAccountSummaries): Types.DeribitAccountSummaries['summaries'] {
+        return data.summaries.map((each) => ({
+            currency: each.currency,
+            balance: each.balance
+        }))
     }
 }
