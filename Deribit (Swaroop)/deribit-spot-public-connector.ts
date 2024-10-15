@@ -3,25 +3,35 @@ import { WebSocket } from 'ws'
 import { directionMap, MAX_RETRY_COUNT } from './deribit-spot';
 
 export class DeribitSpotPublicConnector {
-    public publicWebsocketAddress = 'wss://www.deribit.com/ws/api/v2';
+    public websocketAddress = 'wss://www.deribit.com/ws/api/v2';
 
-    public retryCount = 0;
-    public websocket: WebSocket;
+    private retryCount = 0;
+    private websocket: WebSocket;
 
-    public bids: Types.Spread[] = []
-    public asks: Types.Spread[] = []
+    private bids: Types.Spread[] = []
+    private asks: Types.Spread[] = []
+
+    private exchangeSymbol: Types.DeribitCurrencySymbol
+    private config: Types.ConnectorConfig
+    constructor(exchangeSymbol: Types.DeribitCurrencySymbol, config?: Types.ConnectorConfig) {
+        this.exchangeSymbol = exchangeSymbol
+        this.config = config
+    }
 
     public async connect(onMessage: (m: Types.Serializable[]) => void): Promise<void> {
         try {
-            console.log(`Attempting to connect to Deribit`);
+            console.log(`Attempting to connect publicly to Deribit`);
 
-            const url = this.publicWebsocketAddress;
+            const url = this.websocketAddress;
             this.websocket = new WebSocket(url);
 
             this.websocket.on('open', () => {
                 try {
                     // Hardcoding values for now but this can be obtained via props
-                    this.subscribeToChannels({exchangeSymbol: "ETH-PERPETUAL", group: "1", interval: "100ms", orderBookDepth: 1})
+                    setTimeout(() => {
+                        // Hardcoding values for now but this can be obtained via props
+                        this.subscribeToChannels({exchangeSymbol: this.exchangeSymbol, ...this.config})
+                    }, 1000)
                     this.retryCount = 0;
                 } catch (err) {
                     console.error(`Error while connecting to WebSocket: ${err.message}`);
@@ -92,12 +102,26 @@ export class DeribitSpotPublicConnector {
         this.websocket.terminate();
     }
 
-    private subscribeToChannels({ exchangeSymbol, group, orderBookDepth, interval }: { exchangeSymbol: string, group: Types.ConnectorGroup,  orderBookDepth: Types.OrderBookDepth, interval: Types.PublicInterval }): void {
-        const channels = [
-            `trades.${exchangeSymbol}.${interval}`,
-            `book.${exchangeSymbol}.${group}.${orderBookDepth}.${interval}`,
-            `ticker.${exchangeSymbol}.${interval}`,
-        ];
+    private subscribeToChannels({ exchangeSymbol, group, orderBookDepth, interval }: { exchangeSymbol: string, group?: Types.ConnectorGroup,  orderBookDepth?: Types.OrderBookDepth, interval?: Types.PrivateInterval }): void {
+        if (!exchangeSymbol) return
+
+        let trades = `trades.${exchangeSymbol}`
+        let tickers = `ticker.${exchangeSymbol}`
+        let book = `book.${exchangeSymbol}`
+
+        if (interval) {
+            trades += `.${interval}`
+            tickers += `.${interval}`
+            if (group) {
+                book += `.${group}`
+            }
+            if (orderBookDepth) {
+                book += `.${orderBookDepth}`
+            }
+            book += `.${interval}`
+        }
+
+        const channels = [trades, tickers, book];
     
         const subscriptionMessage = {
             method: 'public/subscribe',
