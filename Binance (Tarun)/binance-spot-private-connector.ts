@@ -19,8 +19,8 @@ import { Logger } from "../../util/logging";
 import CryptoJS from 'crypto-js';
 import axios, { AxiosStatic } from 'axios';
 import { WebSocket } from 'ws'
-//import { getSklSymbol } from "../../util/config";
-import { BinanceInvertedSideMap, BinanceSideMap, BinanceStringSideMap, getBinanceSymbol, getSklSymbol } from "./binance-spot";
+import { getSklSymbol } from "../../util/config";
+import { BinanceInvertedSideMap, BinanceSideMap, BinanceStringSideMap, getBinanceSymbol } from "./binance-spot";
 import { AllActiveOrder, AccountInfo, placeOrderData, OrderAckResponse, OrderResultResponse, OrderFullResponse, CancelSingleOrderData, BinanceOrderProgress } from "./types";
 
 export type BinanceOrderType = 'LIMIT' | 'MARKET' | 'LIMIT_MAKER' | 'STOP_LOSS' | 'STOP_LOSS_LIMIT' | 'TAKE_PROFIT' | 'TAKE_PROFIT_LIMIT';
@@ -56,9 +56,9 @@ const logger = Logger.getInstance('binance-spot-private-connector');
 export class BinanceSpotPrivateConnector implements PrivateExchangeConnector {
     public connectorId!: string;
 
-    public privateWebsocketAddress = 'wss://testnet.binance.vision/ws-api/v3';
+    public privateWebsocketAddress = 'wss://stream.binance.com:9443/ws';
 
-    public privateRestEndpoint = 'https://testnet.binance.vision/api/v3';
+    public privateRestEndpoint = 'https://api.binance.com/api/v3';
 
     public privateWSFeed: any;
 
@@ -207,7 +207,7 @@ export class BinanceSpotPrivateConnector implements PrivateExchangeConnector {
 
     public async getCurrentActiveOrders(request: OpenOrdersRequest): Promise<OrderStatusUpdate[]> {
 
-        const orders: AllActiveOrder = await this.getRequest('/openOrderList', {
+        const orders: AllActiveOrder = await this.getRequest('/openOrders', {
             symbol: this.exchangeSymbol
         });
 
