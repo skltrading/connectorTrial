@@ -1,10 +1,11 @@
+import * as Types from "./types"
 import { DeribitSpotPublicConnector } from './deribit-spot-public-connector';
 
 // Create an instance of the connector
 const connector = new DeribitSpotPublicConnector();
 
 // Define a message handler
-const handleMessage = (messages: any[]) => {
+const handleMessage = (messages: Types.Serializable[]) => {
     console.log('Received message:', messages);
 };
 
