@@ -9,7 +9,7 @@ export class ExchangeNamePublicConnector implements PublicExchangeConnector {
     private exchangeSymbol: string;
     private sklSymbol: string;
     private websocket: WebSocket;
-    private publicWebsocketUrl: string = 'wss://public.websocket.url'; // Example URL
+    private publicWebsocketUrl: string = 'wss://stream.binance.com:9443/ws';
 
     constructor(
         private group: ConnectorGroup,
