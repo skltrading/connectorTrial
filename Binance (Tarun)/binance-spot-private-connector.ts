@@ -12,7 +12,6 @@ import {
     OpenOrdersRequest,
     BalanceRequest,
     BalanceResponse,
-    BatchOrdersRequest
 } from "../../types";
 
 import { Logger } from "../../util/logging";
@@ -49,8 +48,6 @@ const BinanceOrderTypeMap: { [key: string]: BinanceOrderType } = {
     'TakeProfitLimit': 'TAKE_PROFIT_LIMIT'
 }
 
-
-
 const logger = Logger.getInstance('binance-spot-private-connector');
 
 export class BinanceSpotPrivateConnector implements PrivateExchangeConnector {
@@ -72,12 +69,10 @@ export class BinanceSpotPrivateConnector implements PrivateExchangeConnector {
 
     private sklSymbol: string;
 
+    // To implement rate limiting
     private orderQueue: any[] = [];
-
     private isProcessing: boolean = false;
-
     private maxOrdersPerSecond = 10;
-
     private requestInterval = 1000 / this.maxOrdersPerSecond; // Interval in ms
 
 
@@ -129,6 +124,7 @@ export class BinanceSpotPrivateConnector implements PrivateExchangeConnector {
 
                         Logger.log('Pinging binance to keep user data stream alive');
 
+                        // PUT request to /userDataStream extend the key expiration by 60 min
                         this.putRequest('/userDataStream', {
                             listenkey: key
                         })
@@ -246,7 +242,6 @@ export class BinanceSpotPrivateConnector implements PrivateExchangeConnector {
 
         const baseAsset = self.group.name
         const quoteAsset = self.config.quoteAsset
-        // console.log(baseAsset);
 
         const usdt = result.balances.find(d => d.asset === quoteAsset) || { free: '0', locked: '0' };
 
@@ -272,9 +267,9 @@ export class BinanceSpotPrivateConnector implements PrivateExchangeConnector {
         }
     }
 
+     //-> 15/10/2024 : Binance dont have a api for batch order processing
     public async placeOrder(data: placeOrderData): Promise<any> {
         const self = this;
-
         const order = {
             symbol: data.symbol,
             quantity: data.quantity.toFixed(8),
@@ -285,22 +280,26 @@ export class BinanceSpotPrivateConnector implements PrivateExchangeConnector {
 
         this.orderQueue.push({ order, data });
 
-        if (!this.isProcessing) {
-            this.isProcessing = true;
+        if (!self.isProcessing) {
+            self.isProcessing = true;
             await this.processOrderQueue();
         }
 
         return;
     }
 
-    // this function is for implementing rate limiting to 10 orders per second
+    // rate limiting to 10 orders per second
     private async processOrderQueue() {
         while (this.orderQueue.length > 0) {
-            const { order, data } = this.orderQueue.shift();
+
+            const { order, data } = this.orderQueue.shift(); // removes and returns the first element 
 
             const response = await this.postRequest('/order', order);
 
             let resultResponse: any = null;
+
+            // The binance rest api return the type of data on the basis of newOrderRespType send during 
+            // order placement
 
             if (data.newOrderRespType === 'ACK') {
 
@@ -400,8 +399,8 @@ export class BinanceSpotPrivateConnector implements PrivateExchangeConnector {
 
         return await this.postRequest('/userDataStream');
         
-        // sending a post request to binance will automaticaly create a new one
-        // or extend the existing key expiration time without sending a new key
+        // sending a post request to binance will automaticaly create a new listenkey
+        // and if key already exist it just extend the existing key expiration time without sending a new key
 
     }
 
@@ -419,7 +418,7 @@ export class BinanceSpotPrivateConnector implements PrivateExchangeConnector {
 
             Object.keys(params).forEach(k => {
 
-                pMap.push(`${k}=${params[k]}`);
+                pMap.push(`${k}=${params[k]}`); //(From docs) -> no need to encode the params if we are using HMAC key with binance
 
             });
 

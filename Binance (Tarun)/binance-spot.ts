@@ -26,6 +26,7 @@ export const getBinanceSymbol = (symbolGroup: ConnectorGroup, connectorConfig: C
     return `${symbolGroup.name}${connectorConfig.quoteAsset}`
 }
 
+// trying to create getSklSymbol function from skl-library
 export const getSklSymbol = (group: any, config: any)=>{
     return `${group.symbol}${config.quoteAsset}`;
 }
