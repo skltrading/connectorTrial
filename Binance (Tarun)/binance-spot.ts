@@ -13,13 +13,13 @@ export const BinanceSideMap: { [key: string]: Side } = {
 }
 
 export const BinanceStringSideMap: { [key: string]: Side } = {
-    'BUY': 'BUY',
-    'SELL': 'SELL'
+    'BUY': 'Buy',
+    'SELL': 'Sell'
 }
 
 export const BinanceInvertedSideMap: { [key: string]: BinanceSide } = {
-    'BUY': 'BUY',
-    'SELL': 'SELL'
+    'Buy': 'BUY',
+    'Sell': 'SELL'
 }
 
 export const getBinanceSymbol = (symbolGroup: ConnectorGroup, connectorConfig: ConnectorConfiguration): string => {
@@ -27,5 +27,5 @@ export const getBinanceSymbol = (symbolGroup: ConnectorGroup, connectorConfig: C
 }
 
 export const getSklSymbol = (group: any, config: any)=>{
-    return `${config.symbol}${group.quoteAsset}`;
+    return `${group.symbol}${config.quoteAsset}`;
 }

@@ -26,16 +26,18 @@ import { AllActiveOrder, AccountInfo, placeOrderData, OrderAckResponse, OrderRes
 export type BinanceOrderType = 'LIMIT' | 'MARKET' | 'LIMIT_MAKER' | 'STOP_LOSS' | 'STOP_LOSS_LIMIT' | 'TAKE_PROFIT' | 'TAKE_PROFIT_LIMIT';
 
 const BinanceWSOrderUpdateStateMap: { [key: string]: OrderState } = {
-    '1': 'PENDING_NEW',
-    '2': 'FILLED',
-    '3': 'PARTIALLY_FILLED',
-    '4': 'CANCELED',
-    '5': 'EXPIRED',
+    'NEW': 'Placed',
+    'FILLED': 'Filled',
+    'PARTIALLY_FILLED': 'PartiallyFilled',
+    'CANCELED': 'Cancelled',
+    'EXPIRED': 'CancelledPartiallyFilled',
 }
 
 const BinanceOpenOrdersStateMap: { [key: string]: OrderState } = {
     'NEW': 'Placed',
     'PARTIALLY_FILLED': 'PartiallyFilled',
+    'EXECUTING': 'Executing',
+    'CANCELED': 'Canceled'
 }
 
 const BinanceOrderTypeMap: { [key: string]: BinanceOrderType } = {
@@ -89,10 +91,10 @@ export class BinanceSpotPrivateConnector implements PrivateExchangeConnector {
         this.sklSymbol = getSklSymbol(this.group, this.config);
 
         // remove this credential initialzation after testing
-        this.credential = {
-            apiKey: process.env.USER_BINANCE_API_KEY, // Example for an API key
-            apiSecret: process.env.USER_BINANCE_SECRET, // Example for an API secret
-        };
+        // this.credential = {
+        //     apiKey: process.env.USER_BINANCE_API_KEY, // Example for an API key
+        //     apiSecret: process.env.USER_BINANCE_SECRET, // Example for an API secret
+        // };
         this.axios = axios;
     }
 
@@ -127,7 +129,9 @@ export class BinanceSpotPrivateConnector implements PrivateExchangeConnector {
 
                         Logger.log('Pinging binance to keep user data stream alive');
 
-                        this.axios.put(`${this.privateRestEndpoint}/userDataStream`)
+                        this.putRequest('/userDataStream', {
+                            listenkey: key
+                        })
                             .catch((err) => {
                                 Logger.log(`Error pinging user data stream: ${err.toString()}`);
                             });
@@ -177,7 +181,8 @@ export class BinanceSpotPrivateConnector implements PrivateExchangeConnector {
                     Logger.log(`WebSocket closed: ${code} - ${reason}`);
 
                     // Attempt to reconnect after a short delay
-                    setTimeout(() => {
+                    setTimeout(async () => {
+                        await this.deleteRequest('/userDataStream', { listenKey: key })
                         clearInterval(this.pingInterval);
                         clearInterval(this.pingUserDataStream);
                         this.connect(onMessage).catch(err => {
@@ -214,7 +219,7 @@ export class BinanceSpotPrivateConnector implements PrivateExchangeConnector {
                 return <OrderStatusUpdate>{
                     event: 'OrderStatusUpdate',
                     connectorType: 'Binance',
-                    symbol: this.sklSymbol,
+                    symbol: o.symbol,
                     orderId: o.orderId,
                     sklOrderId: o.clientOrderId,
                     state: BinanceOpenOrdersStateMap[o.status],
@@ -222,7 +227,7 @@ export class BinanceSpotPrivateConnector implements PrivateExchangeConnector {
                     price: parseFloat(o.price),
                     size: parseFloat(o.origQty),
                     notional: parseFloat(o.price) * parseFloat(o.origQty),
-                    filled_price: parseFloat(o.price),
+                    filled_price: parseFloat(o.price) * parseFloat(o.executedQty),
                     filled_size: parseFloat(o.executedQty),
                     timestamp: o.time
                 }
@@ -235,7 +240,9 @@ export class BinanceSpotPrivateConnector implements PrivateExchangeConnector {
 
     public async getBalancePercentage(request: BalanceRequest): Promise<BalanceResponse> {
         const self = this
-        const result: AccountInfo = await this.getRequest('/account', {});
+        const result: AccountInfo = await this.getRequest('/account', {
+            timestamp: request.timestamp
+        });
 
         const baseAsset = self.group.name
         const quoteAsset = self.config.quoteAsset
@@ -265,53 +272,6 @@ export class BinanceSpotPrivateConnector implements PrivateExchangeConnector {
         }
     }
 
-    public async placeOrders(data: placeOrderData): Promise<any> {
-        const self = this
-
-        const side = BinanceInvertedSideMap[data.side];
-        const type = BinanceOrderTypeMap[data.type];
-        const order = {
-            symbol: self.exchangeSymbol,
-            quantity: data.quantity.toFixed(8),
-            price: data.price.toFixed(8),
-            side,
-            type,
-        };
-
-        try {
-            const response = await this.postRequest('/order', order);
-
-            if (data.newOrderRespType === 'ACK') {
-                const ackResponse = response as unknown as OrderAckResponse;
-                console.log('Order acknowledged:', ackResponse);
-                return ackResponse;
-
-            } else if (data.newOrderRespType === 'RESULT') {
-                const resultResponse = response as unknown as OrderResultResponse;
-                console.log('Order result:', resultResponse);
-                return resultResponse;
-
-            } else if (data.newOrderRespType === 'FULL') {
-                const fullResponse = response as unknown as OrderFullResponse;
-                console.log('Order full response:', fullResponse);
-                return fullResponse;
-
-            } else if ('code' in data && 'msg' in data) {
-                logger.log(`Subscription response: ${data.code} - ${data.msg}`)
-                const failResponse = {
-                    code: data.code,
-                    msg: data.msg
-                }
-                return failResponse;
-            } else {
-                throw new Error('Unknown response type');
-            }
-
-        } catch (error: any) {
-            logger.error('API Error:', error);
-        }
-    }
-
     public async placeOrder(data: placeOrderData): Promise<any> {
         const self = this;
 
@@ -338,7 +298,7 @@ export class BinanceSpotPrivateConnector implements PrivateExchangeConnector {
         while (this.orderQueue.length > 0) {
             const { order, data } = this.orderQueue.shift();
 
-            const response = await this.postRequest('/api/v3/order', order);
+            const response = await this.postRequest('/order', order);
 
             let resultResponse: any = null;
 
@@ -424,7 +384,7 @@ export class BinanceSpotPrivateConnector implements PrivateExchangeConnector {
             connectorType: 'Binance',
             event: action,
             state,
-            orderId: order.i,
+            orderId: order.i.toString(),
             sklOrderId: order.e,
             side,
             price: order.p,
@@ -438,19 +398,10 @@ export class BinanceSpotPrivateConnector implements PrivateExchangeConnector {
 
     private async safeGetListenKey() {
 
-        const keys = await this.getRequest('/userDataStream', {});
-
-        if (keys && keys.listenKey !== undefined) {
-
-            console.log('Roating Keys, found', keys);
-
-            keys.forEach(async (key: string) => {
-                await this.deleteRequest('/userDataStream', { listenKey: key });
-            })
-
-        }
-
-        return await this.postRequest('/userDataStream', {});
+        return await this.postRequest('/userDataStream');
+        
+        // sending a post request to binance will automaticaly create a new one
+        // or extend the existing key expiration time without sending a new key
 
     }
 
@@ -544,15 +495,60 @@ export class BinanceSpotPrivateConnector implements PrivateExchangeConnector {
 
     }
 
-    private async postRequest(route: string, params: any): Promise<any> {
+    private async postRequest(route: string, params?: any): Promise<any> {
 
         const now = Date.now();
 
         let body = undefined;
 
-        params = { ...params, timestamp: now, recvWindow: 5000 * 2 };
+        
 
-        if (params) {
+        if (params && params != undefined) {
+
+            params = { ...params, timestamp: now, recvWindow: 5000 * 2 };
+
+            const pMap: any = [];
+
+            Object.keys(params).forEach(k => {
+                pMap.push(`${k}=${params[k]}`);
+            });
+
+            body = pMap.join('&');
+
+        }
+
+        const signature = CryptoJS
+            .HmacSHA256(body, this.credential.secret)
+        params.signature = signature;
+
+        const header = {
+            'Content-Type': 'application/json',
+            'X-MBX-APIKEY': this.credential.key,
+        }
+
+        try {
+
+            const result = await this.axios.post(`${this.privateRestEndpoint}${route}?${body}&signature=${signature}`, {
+                headers: header
+            });
+
+            return result.data;
+
+        } catch (error) {
+            logger.log("error sending a post request ", error);
+        }
+
+    }
+
+    private async putRequest(route: string, params?: any): Promise<any> {
+
+        const now = Date.now();
+
+        let body = undefined;
+
+        
+
+        if (params && params != undefined) {
 
             const pMap: any = [];
 
@@ -588,3 +584,5 @@ export class BinanceSpotPrivateConnector implements PrivateExchangeConnector {
     }
 
 }
+
+

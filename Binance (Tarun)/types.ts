@@ -36,7 +36,7 @@ export interface Credential {
 
 interface OrderEvent {
     symbol: string;
-    connectorType: 'Mexc'; 
+    connectorType: 'Binance'; 
     event: string; 
     state: string;  
     orderId: number;   
@@ -49,6 +49,22 @@ interface OrderEvent {
     filled_size: number;
     timestamp: number;         
 }
+
+export interface OrderStatusUpdate {
+    event: string;
+    connectorType: string;
+    symbol: string;
+    orderId: string;
+    sklOrderId: string;
+    state: string;
+    side: string;
+    price: number;
+    size: number;
+    notional: number;
+    filled_price: number;
+    filled_size: number;
+    timestamp: number;
+  }
 
 export type SklEvent = 'TopOfBook' | 'Trade' | 'Ticker' | 'Ping';
 
@@ -167,8 +183,8 @@ export interface CancelSingleOrderData {
 
 export type placeOrderData = {
     symbol: string;
-    side: 'BUY' | 'SELL';
-    type: 'LIMIT' | 'MARKET' | 'STOP_LIMIT' | 'TAKE_PROFIT_LIMIT' | 'LIMIT_MAKER';
+    side: 'Buy' | 'Sell';
+    type: 'Limit' | 'Market' | 'StopLimit' | 'TakeProfitLimit' | 'LimitMaker';
     timeInForce?: 'GTC' | 'IOC' | 'FOK';
     quantity: number;
     price: number;
@@ -177,5 +193,5 @@ export type placeOrderData = {
     icebergQty?: number;
     newOrderRespType?: 'ACK' | 'RESULT' | 'FULL';
     recvWindow?: number;
-    timestamp?: number;
+    timestamp: number;
 };
