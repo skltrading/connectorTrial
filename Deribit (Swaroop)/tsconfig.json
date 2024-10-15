@@ -6,7 +6,8 @@
       "removeComments": true,
       "preserveConstEnums": true,
       "sourceMap": true,
-      "esModuleInterop": true
+      "esModuleInterop": true,
+      "types": ["node", "jest"]
     },
-    "exclude": ["node_modules", ".env"]
+    "exclude": ["node_modules", ".env", "**/*.test.*", "**/__mocks__/*", "**/__tests__/*"]
   }
