@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "",
   "scripts": {
-    "run-public": "tsc ./private-driver.ts && node ./public-driver.js",
+    "run-public": "tsc ./public-driver.ts && node ./public-driver.js",
     "run-private": "tsc ./private-driver.ts && node ./private-driver.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
