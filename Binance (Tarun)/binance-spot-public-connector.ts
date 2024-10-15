@@ -47,8 +47,7 @@ export class BinanceSpotPublicConnector implements PublicExchangeConnector {
     //private pingInterval: any;
     private lastMessageSentTime: number = 0;
     private numberOfMessageSent: number = 0;
-    private connectionCount = 0;
-    private maxConnections = 300;
+    private maxConnections = 300; // Binance allow 300 connections request per 5 minutes
     private connectionResetInterval: any = null;
     private connectionAttempts: number[] = [];
 
@@ -59,6 +58,7 @@ export class BinanceSpotPublicConnector implements PublicExchangeConnector {
     constructor(private group: ConnectorGroup, private config: ConnectorConfiguration) {
         this.exchangeSymbol = getBinanceSymbol(this.group, this.config);
         this.sklSymbol = getSklSymbol(this.group, this.config);
+
         this.connectionResetInterval = setInterval(() => {
             this.connectionAttempts = [];
             logger.log("Connection attempts reset after 5 minutes.");
@@ -166,8 +166,6 @@ export class BinanceSpotPublicConnector implements PublicExchangeConnector {
 
     public async stop() {
 
-        //clearInterval(this.pingInterval);
-
         const message = JSON.stringify({
             'method': 'UNSUBSCRIBE',
             'params': [
@@ -187,6 +185,7 @@ export class BinanceSpotPublicConnector implements PublicExchangeConnector {
 
         if (event !== undefined && event.c !== undefined) {
 
+            // Binance do not provide a event field in the depth data stream
             if ('bids' in message && 'ask' in message) {
 
                 return 'TopOfBook'
