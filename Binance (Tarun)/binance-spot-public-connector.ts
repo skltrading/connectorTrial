@@ -1,8 +1,8 @@
 import { ConnectorConfiguration, ConnectorGroup, PublicExchangeConnector, Serializable, SklEvent, Ticker, TopOfBook, Trade } from "../../types";
-//import { getSklSymbol } from "../../util/config";
+import { getSklSymbol } from "../../util/config";
 
 import { Logger } from "../../util/logging";
-import { getBinanceSymbol, BinanceSideMap, getSklSymbol } from "./binance-spot";
+import { getBinanceSymbol, BinanceSideMap } from "./binance-spot";
 import { WebSocket } from 'ws'
 
 
@@ -40,11 +40,17 @@ export interface BinanceTradeEvent {
 const logger = Logger.getInstance('binance-spot-public-connector');
 
 export class BinanceSpotPublicConnector implements PublicExchangeConnector {
-    public publicWebsocketAddress = 'wss://testnet.binance.vision/ws';
+    public publicWebsocketAddress = 'wss://stream.binance.com:9443/ws';
 
     public publicWSFeed: any;
 
     //private pingInterval: any;
+    private lastMessageSentTime: number = 0;
+    private numberOfMessageSent: number = 0;
+    private connectionCount = 0;
+    private maxConnections = 300;
+    private connectionResetInterval: any = null;
+    private connectionAttempts: number[] = [];
 
     private exchangeSymbol: string;
 
@@ -53,9 +59,24 @@ export class BinanceSpotPublicConnector implements PublicExchangeConnector {
     constructor(private group: ConnectorGroup, private config: ConnectorConfiguration) {
         this.exchangeSymbol = getBinanceSymbol(this.group, this.config);
         this.sklSymbol = getSklSymbol(this.group, this.config);
+        this.connectionResetInterval = setInterval(() => {
+            this.connectionAttempts = [];
+            logger.log("Connection attempts reset after 5 minutes.");
+        }, 300000);
     }
 
     public async connect(onMessage: (m: Serializable[]) => void, socket = undefined): Promise<any> {
+
+        let now = Date.now();
+
+        this.connectionAttempts = this.connectionAttempts.filter(attempt => now - attempt <= 300000);
+
+        if (this.connectionAttempts.length >= this.maxConnections) {
+            logger.log("Connection limit reached. Please wait before attempting again.");
+            this.publicWSFeed.close(1000, "Connection limit reached");
+            return;
+        }
+
         return new Promise(async (resolve, reject) => {
             try {
                 logger.log(`Attempting to connect to Binance`);
@@ -65,6 +86,7 @@ export class BinanceSpotPublicConnector implements PublicExchangeConnector {
 
                 this.publicWSFeed.on('open', () => {
                     try {
+
                         const message = JSON.stringify({
                             'method': 'SUBSCRIBE',
                             'params': [
@@ -75,7 +97,21 @@ export class BinanceSpotPublicConnector implements PublicExchangeConnector {
                             "id": 1
                         });
 
-                        this.publicWSFeed.send(message);
+                        now = Date.now();
+
+                        if (now - this.lastMessageSentTime >= 1000) {
+                            this.numberOfMessageSent = 0;
+                            this.lastMessageSentTime = now;
+                        }
+
+                        if (this.numberOfMessageSent >= 5) {
+                            logger.log("please wait before sending another message");
+                        } else {
+                            this.numberOfMessageSent += 1;
+                            this.publicWSFeed.send(message);
+                            this.lastMessageSentTime = now;
+                        }
+
                         resolve(true);
                     } catch (err: any) {
                         logger.error(`Error during WebSocket open event: ${err.message}`);
@@ -114,7 +150,7 @@ export class BinanceSpotPublicConnector implements PublicExchangeConnector {
                     setTimeout(() => {
                         logger.log(`Reconnecting to WebSocket...`);
                         this.connect(onMessage).catch(reject);
-                    }, 1000);
+                    }, 10000);
                 });
 
                 if (this.publicWSFeed.__init !== undefined) {
@@ -234,6 +270,11 @@ export class BinanceSpotPublicConnector implements PublicExchangeConnector {
             lastPrice: parseFloat(trade.c),
             timestamp: trade.E * 1000,
         };
+    }
+
+    public cleanup() {
+        clearInterval(this.connectionResetInterval);
+        console.log("Cleanup done.");
     }
 
 }
