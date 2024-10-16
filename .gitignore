@@ -1,2 +1,4 @@
-KuCoin (Rhythm)/src/.env
 node_modules/
+KuCoin (Rhythm)/.env
+KuCoin (Rhythm)/connector.log
+KuCoin (Rhythm)/logs/connector.log
