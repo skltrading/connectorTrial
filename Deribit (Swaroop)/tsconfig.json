@@ -1,0 +1,13 @@
+{
+    "compilerOptions": {
+    "lib": ["ES2015", "DOM", "DOM.Iterable", "WebWorker"],
+      "module": "commonjs",
+      "noImplicitAny": true,
+      "removeComments": true,
+      "preserveConstEnums": true,
+      "sourceMap": true,
+      "esModuleInterop": true,
+      "types": ["node", "jest"]
+    },
+    "exclude": ["node_modules", ".env", "**/*.test.*", "**/__mocks__/*", "**/__tests__/*"]
+  }

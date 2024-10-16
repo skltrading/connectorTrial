@@ -1,2 +1,6 @@
-KuCoin (Rhythm)/src/.env
 node_modules/
+dist/
+.env
+
+Deribit (Swaroop)/*.js
+KuCoin (Rhythm)/src/.env
