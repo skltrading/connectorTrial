@@ -3,3 +3,4 @@ dist/
 .env
 
 Deribit (Swaroop)/*.js
+KuCoin (Rhythm)/src/.env

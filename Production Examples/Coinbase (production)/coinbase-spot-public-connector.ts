@@ -9,6 +9,7 @@ import {
     TopOfBook,
     Trade,
 } from "../../types"
+
 import {
     CoinbaseTradeSide,
     getCoinbaseSymbol,
@@ -376,4 +377,6 @@ export class CoinbaseSpotPublicConnector implements PublicExchangeConnector {
 
         return { ...message, jwt: result };
     }
+
+
 }
