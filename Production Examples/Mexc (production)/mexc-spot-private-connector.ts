@@ -59,6 +59,7 @@ const MexcOrderTypeMap: { [key: string]: MexcOrderType } = {
     'ImmediateOrCancel': 'IMMEDIATE_OR_CANCEL'
 }
 
+
 const logger = Logger.getInstance('mexc-spot-private-connector')
 
 export class MexcSpotPrivateConnector implements PrivateExchangeConnector {

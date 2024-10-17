@@ -118,6 +118,7 @@ export class CoinbaseSpotPublicConnector implements PublicExchangeConnector {
                 self.subscribeToProducts('market_trades')
                 self.subscribeToProducts('level2')
                 resolve(true);
+                
             });
 
             self.publicWebsocketFeed.onmessage = (message: any) => {
