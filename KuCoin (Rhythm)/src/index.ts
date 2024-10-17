@@ -9,7 +9,8 @@ config();
 
 const main = async () => {
   // Initialize the public connector
-  // const publicConnector = new KuCoinPublicConnector(onMessage);
+  const publicConnector = new KuCoinPublicConnector(onMessage);
+
   // Initialize the private connector
   const apiKey = process.env.KUCOIN_API_KEY;
   const apiSecret = process.env.KUCOIN_API_SECRET;
@@ -27,12 +28,12 @@ const main = async () => {
   );
 
   // Add desired subscription channels for the public connector
-  // publicConnector.addSubscription('/market/ticker:BTC-USDT');
-  // publicConnector.addSubscription('/market/match:BTC-USDT');
-  // publicConnector.addSubscription('/market/level2:BTC-USDT');
+  publicConnector.addSubscription("/market/ticker:BTC-USDT");
+  publicConnector.addSubscription("/market/match:BTC-USDT");
+  publicConnector.addSubscription("/market/level2:BTC-USDT");
 
   // Connect the public connector
-  // await publicConnector.connect();
+  await publicConnector.connect();
 
   // Connect the private connector
   await privateConnector.connect(); // Ensure this method exists in your private connector
@@ -42,10 +43,10 @@ const main = async () => {
     clientOid: uuidv4(), // Generates a unique order ID
     side: "buy" as "buy", // Order side: 'buy' or 'sell'
     symbol: "BTC-USDT", // Trading pair
-    type: "limit" as 'limit', // Order type: 'limit' or 'market'
+    type: "limit" as "limit", // Order type: 'limit' or 'market'
     price: "20000", // Price for limit orders
     size: "0.01", // Amount to buy/sell
-    timeInForce: "GTC" as 'GTC', // Time in force
+    timeInForce: "GTC" as "GTC", // Time in force
   };
 
   // Example of placing an order
@@ -56,8 +57,9 @@ const main = async () => {
     logger.error(`Error placing order: ${(error as Error).message}`);
   }
 
+  // Example of getting the account balance
   try {
-    const balance = await privateConnector.getBalance('ETH');
+    const balance = await privateConnector.getBalance("ETH");
     logger.info(`Balance: ${balance}`);
   } catch (error) {
     logger.error(`Error getting balance: ${(error as Error).message}`);

@@ -109,7 +109,7 @@ export class KuCoinPrivateConnector {
           },
         }
       );
-      logger.info(`Obtained bullet private token`);
+      logger.info(`Obtained bullet private token.`);
       return response.data.data;
     } catch (error: any) {
       logger.error(

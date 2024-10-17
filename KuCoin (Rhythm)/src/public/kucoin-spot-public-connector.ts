@@ -50,7 +50,7 @@ export class KuCoinPublicConnector {
       const response = await axios.post<BulletPublicResponse>(
         `${this.apiBaseUrl}${endpoint}`
       );
-      logger.info(`Obtained bullet public token: ${response.data.data.token}`);
+      logger.info(`Obtained bullet public token.`);
       logger.info(
         `Instance Servers: ${JSON.stringify(
           response.data.data.instanceServers,
