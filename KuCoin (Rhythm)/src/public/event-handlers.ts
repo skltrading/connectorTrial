@@ -1,10 +1,8 @@
-// src/eventHandlers.ts
-
-import { WebSocketMessage } from '../types';
+import { TickerData } from '../types';
 import { isTickerMessage, isTradeMessage, isOrderbookMessage } from '../typeguards';
 import { processTicker, processTrade, processOrderbook, handleUnknownEvent } from '../processors';
 
-export function onMessage(data: WebSocketMessage) {
+export function onMessage(data: any) {
     if (isTickerMessage(data)) {
         processTicker(data);
     } else if (isTradeMessage(data)) {
