@@ -1,0 +1,25 @@
+{
+  "name": "trial",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start-public": "node --loader ts-node/esm ./src/public-connector-main.ts",
+    "start-private": "node --loader ts-node/esm ./src/private-connector-main.ts"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.7.7",
+    "crypto-js": "^4.2.0",
+    "cryptojs": "^2.5.3",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/crypto-js": "^4.2.2",
+    "@types/node": "^22.7.5",
+    "@types/ws": "^8.5.12",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.6.3"
+  }
+}
