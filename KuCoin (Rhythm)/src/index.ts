@@ -1,5 +1,5 @@
 import { KuCoinPublicConnector } from "./public/kucoin-spot-public-connector";
-import { KuCoinPrivateConnector } from "./private/kucoin-spot-private-connector"; // Import your private connector
+import { KuCoinPrivateConnector } from "./private/kucoin-spot-private-connector";
 import { onMessage } from "./public/event-handlers";
 import { config } from "dotenv";
 import logger from "./logger";
@@ -36,17 +36,17 @@ const main = async () => {
   await publicConnector.connect();
 
   // Connect the private connector
-  await privateConnector.connect(); // Ensure this method exists in your private connector
+  await privateConnector.connect();
 
   // Making the order
   const placeOrderExample = {
-    clientOid: uuidv4(), // Generates a unique order ID
-    side: "buy" as "buy", // Order side: 'buy' or 'sell'
-    symbol: "BTC-USDT", // Trading pair
-    type: "limit" as "limit", // Order type: 'limit' or 'market'
-    price: "20000", // Price for limit orders
-    size: "0.01", // Amount to buy/sell
-    timeInForce: "GTC" as "GTC", // Time in force
+    clientOid: uuidv4(),              // Generates a unique order ID
+    side: "buy" as "buy",             // Order side: 'buy' or 'sell'
+    symbol: "BTC-USDT",               // Trading pair
+    type: "limit" as "limit",         // Order type: 'limit' or 'market'
+    price: "20000",                   // Price for limit orders
+    size: "0.01",                     // Amount to buy/sell
+    timeInForce: "GTC" as "GTC",      // Time in force
   };
 
   // Example of placing an order
@@ -67,8 +67,8 @@ const main = async () => {
 
   const shutdown = async () => {
     logger.info("Shutting down connectors...");
-    // await publicConnector.stop();
-    await privateConnector.stop(); // Ensure you stop the private connector
+    publicConnector.stop();
+    privateConnector.stop();
     logger.info("Connectors stopped.");
     process.exit(0);
   };
@@ -76,7 +76,7 @@ const main = async () => {
   process.on("SIGINT", shutdown);
   process.on("SIGTERM", shutdown);
 
-  // Optional: Set a timeout for shutdown (e.g., 60 seconds)
+  // example timeout to shut down the connectors after 60 seconds.
   setTimeout(async () => {
     await shutdown();
   }, 60000);

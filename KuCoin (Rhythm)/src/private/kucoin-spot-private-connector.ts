@@ -2,12 +2,11 @@ import WebSocket from "ws";
 import axios from "axios";
 import crypto from "crypto";
 import {
-  BulletPrivateResponse,
+  BulletResponse,
   PlaceOrderRequest,
   WebSocketMessage,
 } from "../types";
 import logger from "../logger";
-import { EventEmitter } from "events";
 
 type MessageCallback = (data: any) => void;
 
@@ -83,7 +82,7 @@ export class KuCoinPrivateConnector {
    * Obtains the bullet private token required for WebSocket connection.
    * @returns An object containing instance servers and the token.
    */
-  private async getBulletPrivate(): Promise<BulletPrivateResponse["data"]> {
+  private async getBulletPrivate(): Promise<BulletResponse["data"]> {
     const endpoint = "/api/v1/bullet-private";
     const method = "POST";
     const { signature, timestamp } = this.generateSignature(
@@ -93,7 +92,7 @@ export class KuCoinPrivateConnector {
     );
 
     try {
-      const response = await axios.post<BulletPrivateResponse>(
+      const response = await axios.post<BulletResponse>(
         `${this.apiBaseUrl}${endpoint}`,
         {},
         {
@@ -284,7 +283,7 @@ export class KuCoinPrivateConnector {
   public async cancelOrder(orderId: string) {
     const endpoint = `/api/v1/orders/${orderId}`;
     const method = "DELETE";
-    const body = ""; // No body needed for DELETE
+    const body = "";
     const { signature, timestamp } = this.generateSignature(
       endpoint,
       method,
@@ -324,7 +323,7 @@ export class KuCoinPrivateConnector {
   public async getBalance(symbol: string) {
     const endpoint = `/api/v1/accounts`;
     const method = "GET";
-    const body = ""; // No body needed for GET requests
+    const body = "";
     const { signature, timestamp } = this.generateSignature(
       endpoint,
       method,

@@ -1,6 +1,6 @@
 import WebSocket from "ws";
 import axios from "axios";
-import { BulletPublicResponse, WebSocketMessage } from "../types";
+import { BulletResponse, WebSocketMessage } from "../types";
 import logger from "../logger";
 
 type MessageCallback = (data: any) => void;
@@ -18,7 +18,6 @@ export class KuCoinPublicConnector {
   private keepRunning: boolean;
   private reconnectInterval: number;
   private listenKeyRefreshInterval: NodeJS.Timeout | null = null;
-  private listenKeyTTL: number = 60 * 60 * 1000; // 1 hour
   private reconnectAttempts: number = 0;
   private maxReconnectAttempts: number = 10;
 
@@ -44,10 +43,10 @@ export class KuCoinPublicConnector {
    * Obtains the bullet public token required for WebSocket connection.
    * @returns An object containing instance servers and the token.
    */
-  private async getBulletPublic(): Promise<BulletPublicResponse["data"]> {
+  private async getBulletPublic(): Promise<BulletResponse["data"]> {
     const endpoint = "/api/v1/bullet-public";
     try {
-      const response = await axios.post<BulletPublicResponse>(
+      const response = await axios.post<BulletResponse>(
         `${this.apiBaseUrl}${endpoint}`
       );
       logger.info(`Obtained bullet public token.`);
