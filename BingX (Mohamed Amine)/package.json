@@ -1,8 +1,6 @@
 {
-  "name": "for-testing-pup",
+  "name": "trial",
   "version": "1.0.0",
-  "description": "Welcome to the development team! This guide is designed to help you build **public** and **private exchange connectors** for our market-making infrastructure. Exchange connectors are critical components that interact with exchanges to retrieve market data and execute trades.",
-  "main": "index.tx",
   "type": "module",
   "scripts": {
     "build": "tsc",
