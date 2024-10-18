@@ -17,6 +17,7 @@ import {
 import { WebSocket } from 'ws';
 import { Logger } from "../../util/logging";
 import { getSklSymbol } from "../../util/config";
+import { log } from "console";
 
 const logger = Logger.getInstance('gate-spot-public-connector');
 
@@ -106,7 +107,7 @@ export class GateSpotPublicConnector implements PublicExchangeConnector {
 
             // Handle WebSocket 'open' event
             self.publicWebsocketFeed.on('open', () => {
-                logger.info('Public WebSocket connection opened v1');
+                logger.info('Public WebSocket connection opened v2');
                 self.subscribeToProducts('spot.ping');
                 self.subscribeToProducts('spot.trades');
                 self.subscribeToProducts('spot.book_ticker');
@@ -114,17 +115,17 @@ export class GateSpotPublicConnector implements PublicExchangeConnector {
                 resolve(true);
             });
 
+            //logger.info('Subscribed to channels');
+
             // Handle incoming WebSocket messages
-            self.publicWebsocketFeed.on('update', (message: any) => {
+            self.publicWebsocketFeed.on('message', (message: any) => {
+                //logger.log(`Received message: ${JSON.stringify(message)}`);
                 try {
                     const parsedMessage = JSON.parse(message);
                     const gateEvent = parsedMessage;
-
-
-
-
-                    if (gateEvent.channel === "spot.pong") {
-                        logger.log(`Ping received: timestamp = ${gateEvent.time}`);
+                    //logger.log(`Received message: ${JSON.stringify(gateEvent)}`);
+                    if (gateEvent.channel === "spot.ping") {
+                        // logger.log(`Ping received: timestamp = ${gateEvent.time}`);
                     } else {
                         const actionType: SklEvent | null = getEventType(gateEvent);
                         if (actionType) {
