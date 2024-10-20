@@ -1,0 +1,32 @@
+{
+    "name": "coindcx-connector",
+    "version": "1.0.0",
+    "description": "CoinDCX public and private connectors for trading.",
+    "main": "src/index.ts",
+    "scripts": {
+        "test": "jest",
+        "build": "tsc",
+        "start": "node dist/index.js"
+    },
+    "dependencies": {
+        "@types/ws": "^8.5.12",
+        "axios": "^0.21.1",
+        "crypto-js": "^4.0.0",
+        "dotenv": "^10.0.0",
+        "socket.io-client": "^4.1.2",
+        "ws": "^8.18.0"
+    },
+    "devDependencies": {
+        "@types/axios-mock-adapter": "^1.10.0",
+        "@types/crypto-js": "^4.2.2",
+        "@types/jest": "^27.5.2",
+        "@types/node": "^16.0.0",
+        "axios-mock-adapter": "^2.1.0",
+        "jest": "^27.5.1",
+        "ts-jest": "^27.1.5",
+        "typescript": "^4.3.5"
+    },
+    "author": "Your Name",
+    "license": "ISC",
+    "keywords": []
+}
