@@ -1,33 +1,25 @@
-import {
-    PublicExchangeConnector,
-    ConnectorConfiguration,
-    ConnectorGroup,
-    Serializable,
-} from 'skl-shared';
+import WebSocket from 'ws';  // Correct WebSocket import
 
-export class ExchangeNamePublicConnector implements PublicExchangeConnector {
+export class ExchangeNamePublicConnector {
     private exchangeSymbol: string;
     private sklSymbol: string;
     private websocket: WebSocket;
-    private publicWebsocketUrl: string = 'wss://stream.binance.com:9443/ws';
+    private publicWebsocketUrl: string = 'wss://stream.binance.com:9443/ws';  // Binance public WebSocket URL
 
-    constructor(
-        private group: ConnectorGroup,
-        private config: ConnectorConfiguration
-    ) {
+    constructor(private group: any, private config: any) {
         this.exchangeSymbol = this.getExchangeSymbol(group, config);
         this.sklSymbol = this.getSklSymbol(group, config);
     }
 
-    private getExchangeSymbol(group: ConnectorGroup, config: ConnectorConfiguration): string {
-        return 'mappedExchangeSymbol'; // Update with actual logic
+    private getExchangeSymbol(group: any, config: any): string {
+        return 'mappedExchangeSymbol';  // Placeholder logic for exchange symbol
     }
 
-    private getSklSymbol(group: ConnectorGroup, config: ConnectorConfiguration): string {
-        return 'mappedSklSymbol'; // Update with actual logic
+    private getSklSymbol(group: any, config: any): string {
+        return 'mappedSklSymbol';  // Placeholder logic for SKL symbol
     }
 
-    public async connect(onMessage: (messages: Serializable[]) => void): Promise<void> {
+    public async connect(onMessage: (messages: any[]) => void): Promise<void> {
         this.websocket = new WebSocket(this.publicWebsocketUrl);
 
         this.websocket.on('open', () => {
@@ -64,9 +56,10 @@ export class ExchangeNamePublicConnector implements PublicExchangeConnector {
         console.log('Subscribed to channels:', channels);
     }
 
-    private handleMessage(data: string, onMessage: (messages: Serializable[]) => void): void {
+    private handleMessage(data: string, onMessage: (messages: any[]) => void): void {
         const message = JSON.parse(data);
         console.log('Received message:', message);
+        onMessage([message]);  // Adjust this logic as needed
     }
 
     public async stop(): Promise<void> {
@@ -82,4 +75,3 @@ export class ExchangeNamePublicConnector implements PublicExchangeConnector {
         this.websocket.close();
     }
 }
-

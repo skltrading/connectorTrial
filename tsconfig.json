@@ -1,0 +1,14 @@
+
+{
+  "compilerOptions": {
+    "target": "ES6",           // Allows modern JavaScript features
+    "module": "ESNext",        // Use ES module system
+    "lib": ["ES6", "DOM"],     // Includes ES6 features and DOM types (like WebSockets)
+    "strict": true,            // Enable strict type checking
+    "esModuleInterop": true,   // Ensures compatibility with CommonJS and ES modules
+    "skipLibCheck": true,      // Skip checking library files for performance
+    "forceConsistentCasingInFileNames": true  // Ensure file name casing is consistent
+  },
+  "include": ["src/**/*"],     // Include all TypeScript files in src directory
+  "exclude": ["node_modules"]  // Exclude node_modules from compilation
+}
