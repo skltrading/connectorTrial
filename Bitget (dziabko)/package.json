@@ -1,0 +1,24 @@
+{
+  "name": "bitgetconnector",
+  "version": "1.0.0",
+  "main": "index.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node test.js"
+  },
+  "author": "dziabko",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "bitget-api-node-sdk": "^2.1.4",
+    "crypto-js": "^4.2.0",
+    "dotenv": "^16.4.5",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/crypto-js": "^4.2.2",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.5",
+    "typescript": "^5.6.3"
+  }
+}
