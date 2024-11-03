@@ -158,7 +158,6 @@ export class CoinbaseSpotPrivateConnector
   private tokenRefreshInterval = 1000 * 60 * 1.5;
   private pingInterval: any
 
-
   constructor(
     private group: ConnectorGroup,
     private config: ConnectorConfiguration,
